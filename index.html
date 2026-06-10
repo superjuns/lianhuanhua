@@ -417,6 +417,12 @@
             margin-top: 6px;
             text-align: center;
         }
+        .browser-hint {
+            font-size: 0.6rem;
+            color: #d4944a;
+            text-align: center;
+            margin-top: 4px;
+        }
         @media (max-width: 480px) {
             .config-scroll { gap: 8px; }
             .panel-card { padding: 8px; }
@@ -469,6 +475,7 @@
         </div>
         <div id="statusMsg" class="status">💡 每格对话自动套用“原来→然后→接着→现在+问题”框架，点击🎤语音输入。</div>
         <div class="small-note">⭐ 可增减格子（2~4格），最后一格会自动添加数学问题，浅黄色背景显示。</div>
+        <div class="browser-hint">🎤 语音输入建议使用 Chrome、Edge 浏览器</div>
     </div>
 </div>
 
@@ -541,7 +548,7 @@
         }
 
         if (!isSpeechRecognitionSupported()) {
-            const msg = '您的浏览器不支持语音输入，请使用Chrome、Edge或Android浏览器。';
+            const msg = '您的浏览器不支持语音输入，建议使用 Chrome、Edge 或 Android 浏览器。';
             showVoiceFeedback(msg, true);
             if (statusMsgDiv) statusMsgDiv.innerHTML = msg;
             return;
@@ -713,7 +720,6 @@
         return raw;
     }
 
-    // 纯净的示例文字（不带“例如：”前缀），用于用户未输入时自动填充
     const CLEAN_EXAMPLES = [
         "森林中有15只小动物",
         "狮子邀请所有小动物开会",
@@ -726,7 +732,6 @@
         let parts = [];
         for (let i = 0; i < gridsData.length; i++) {
             let rawDesc = gridsData[i].rawDesc || "";
-            // 如果用户没有输入（空字符串），使用示例文字
             if (rawDesc === "") rawDesc = CLEAN_EXAMPLES[i];
             if (rawDesc) parts.push(rawDesc);
         }
@@ -944,7 +949,6 @@
         let panelsDialogs = [];
         for (let i = 0; i < gridsData.length; i++) {
             let rawDesc = gridsData[i].rawDesc || "";
-            // 如果用户没有输入，使用纯净示例文字
             if (rawDesc === "") rawDesc = CLEAN_EXAMPLES[i];
             const fullDialog = getFullDialog(i, rawDesc, gridNum);
             panelsDialogs.push(`第${i+1}格对话："${fullDialog}"`);
@@ -964,7 +968,6 @@
             statusMsgDiv.innerHTML = '⚠️ 至少需要2格故事，请添加格子。';
             return;
         }
-        // 确保每个格子都有描述（若用户未输入，使用示例文字）
         for (let i = 0; i < gridsData.length; i++) {
             if (!gridsData[i].rawDesc || gridsData[i].rawDesc.trim() === "") {
                 gridsData[i].rawDesc = CLEAN_EXAMPLES[i];
@@ -1217,8 +1220,8 @@
         currentGridCount = 4;
         renderGridCards();
         refreshFishNumbers();
-        comicContainer.innerHTML = `<div class="loading-placeholder" style="padding:12px 10px;">✨ 点击“生成连环画”按钮，AI将根据《动物王国开大会》故事绘制4格连环画 ✨</div>`;
-        statusMsgDiv.innerHTML = '💡 示例：15只动物，7只出去玩，还能开会的有8只。点击🎤可用语音输入故事内容。';
+        comicContainer.innerHTML = `<div class="loading-placeholder" style="padding:12px 10px;">✨ 点击“生成连环画”按钮，将根据故事绘制连环画 ✨</div>`;
+        statusMsgDiv.innerHTML = '💡 示例：15只动物，7只出去玩，还能开会的有多少只。点击🎤可用语音输入故事内容。';
         clearFeedback();
         setupNumpad();
         storyMicBtn.addEventListener('click', () => startSpeechRecognition(storyNameInput, storyMicBtn));
