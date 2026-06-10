@@ -423,6 +423,90 @@
             text-align: center;
             margin-top: 4px;
         }
+        .gallery-section {
+            background: #fefcf8;
+            padding: 12px;
+            border-top: 1px solid #f0e2d0;
+            margin-top: 8px;
+        }
+        .gallery-title {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #b5651e;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .gallery-scroll {
+            display: flex;
+            overflow-x: auto;
+            gap: 12px;
+            padding-bottom: 8px;
+            scrollbar-width: thin;
+        }
+        .gallery-item {
+            flex: 0 0 100px;
+            text-align: center;
+            cursor: pointer;
+        }
+        .gallery-thumb {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 16px;
+            border: 2px solid #ffcd94;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        .gallery-thumb:active {
+            transform: scale(0.96);
+        }
+        .gallery-label {
+            font-size: 0.65rem;
+            color: #a86329;
+            margin-top: 4px;
+            white-space: nowrap;
+            overflow-x: hidden;
+            text-overflow: ellipsis;
+            max-width: 100px;
+        }
+        .image-lightbox {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            cursor: pointer;
+        }
+        .lightbox-image {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            cursor: default;
+        }
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            font-size: 32px;
+            color: white;
+            cursor: pointer;
+            font-family: monospace;
+            background: rgba(0,0,0,0.5);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .lightbox-close:hover {
+            background: rgba(0,0,0,0.8);
+        }
         @media (max-width: 480px) {
             .config-scroll { gap: 8px; }
             .panel-card { padding: 8px; }
@@ -438,6 +522,9 @@
             .ai-verify-btn { font-size: 0.75rem; padding: 5px 10px; }
             .loading-placeholder { padding: 12px 10px; font-size: 0.7rem; }
             .comic-single { padding: 4px; }
+            .gallery-item { flex: 0 0 80px; }
+            .gallery-thumb { width: 80px; height: 80px; }
+            .gallery-label { font-size: 0.6rem; }
         }
     </style>
 </head>
@@ -465,7 +552,7 @@
         </div>
 
         <div class="math-foot">
-            <p>❓ 数学问题已融入最后一格对话中</p>
+            <p>❓ 数学问题已融入最后一格对话中，请从气泡中阅读</p>
             <div class="answer-input-area">
                 <input type="text" id="equationInput" placeholder="例: 15-7=8" value="">
                 <button id="aiVerifyBtn" class="ai-verify-btn">🤖 验证答案</button>
@@ -476,6 +563,11 @@
         <div id="statusMsg" class="status">💡 每格对话自动套用“原来→然后→接着→现在+问题”框架，点击🎤语音输入。</div>
         <div class="small-note">⭐ 可增减格子（2~4格），最后一格会自动添加数学问题，浅黄色背景显示。</div>
         <div class="browser-hint">🎤 语音输入建议使用 Chrome、Edge 浏览器</div>
+    </div>
+
+    <div class="gallery-section" id="gallerySection" style="display: none;">
+        <div class="gallery-title">📚 学生作品展</div>
+        <div id="galleryScroll" class="gallery-scroll"></div>
     </div>
 </div>
 
@@ -510,6 +602,101 @@
     // DeepSeek API 配置
     const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
     const DEEPSEEK_API_KEY = "sk-e8dc89d3a1974757b2352b04ee9b867b";
+
+    // ---------- 作品存储 ----------
+    const STORAGE_KEY = 'math_comic_gallery';
+    const MAX_GALLERY_ITEMS = 12;
+
+    // 压缩图片函数
+    async function compressImage(imageUrl, maxWidth = 800, quality = 0.7) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = "Anonymous"; // 处理跨域
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                if (width > maxWidth) {
+                    height = (height * maxWidth) / width;
+                    width = maxWidth;
+                }
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                // 转换为 JPEG base64，质量 quality
+                const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                resolve(compressedDataUrl);
+            };
+            img.onerror = (err) => reject(err);
+            img.src = imageUrl;
+        });
+    }
+
+    function saveWorkToGallery(className, studentName, storyName, compressedBase64) {
+        let gallery = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        const newWork = {
+            className,
+            studentName,
+            storyName,
+            imageData: compressedBase64, // 存储压缩后的 base64
+            timestamp: Date.now()
+        };
+        gallery.unshift(newWork);
+        if (gallery.length > MAX_GALLERY_ITEMS) gallery.pop();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(gallery));
+        renderGallery();
+    }
+
+    function renderGallery() {
+        const gallery = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        const gallerySection = document.getElementById('gallerySection');
+        const galleryScroll = document.getElementById('galleryScroll');
+        if (gallery.length === 0) {
+            gallerySection.style.display = 'none';
+            return;
+        }
+        gallerySection.style.display = 'block';
+        galleryScroll.innerHTML = '';
+        gallery.forEach(work => {
+            const item = document.createElement('div');
+            item.className = 'gallery-item';
+            item.onclick = () => showImageLightbox(work.imageData);
+            const img = document.createElement('img');
+            img.src = work.imageData;
+            img.className = 'gallery-thumb';
+            img.alt = `${work.studentName}的作品`;
+            const label = document.createElement('div');
+            label.className = 'gallery-label';
+            label.innerText = `${work.className} ${work.studentName}`;
+            item.appendChild(img);
+            item.appendChild(label);
+            galleryScroll.appendChild(item);
+        });
+    }
+
+    function showImageLightbox(imageData) {
+        const existing = document.querySelector('.image-lightbox');
+        if (existing) existing.remove();
+        
+        const lightbox = document.createElement('div');
+        lightbox.className = 'image-lightbox';
+        lightbox.onclick = () => lightbox.remove();
+        
+        const img = document.createElement('img');
+        img.src = imageData;
+        img.className = 'lightbox-image';
+        img.onclick = (e) => e.stopPropagation();
+        
+        const closeBtn = document.createElement('span');
+        closeBtn.className = 'lightbox-close';
+        closeBtn.innerHTML = '✖';
+        closeBtn.onclick = () => lightbox.remove();
+        
+        lightbox.appendChild(closeBtn);
+        lightbox.appendChild(img);
+        document.body.appendChild(lightbox);
+    }
 
     // ---------- 语音识别 ----------
     let activeRecognition = null;
@@ -794,7 +981,6 @@
             return;
         }
 
-        // 1. 本地验证等式是否成立
         const eqCheck = isEquationValid(equation);
         if (!eqCheck.valid) {
             feedbackArea.innerHTML = `❌ ${eqCheck.message}`;
@@ -804,7 +990,6 @@
         }
         const computedResult = eqCheck.leftValue;
 
-        // 2. 显示加载状态
         aiVerifyBtn.disabled = true;
         aiVerifyBtn.innerText = '🤖 思考中...';
         feedbackArea.innerHTML = '🤖 正在分析故事与算式，请稍等...';
@@ -870,7 +1055,6 @@
                 feedbackArea.className = 'feedback wrong';
                 statusMsgDiv.innerHTML = `📊 算式计算结果为 ${computedResult}，但故事逻辑可能不同。`;
             } else {
-                // 兜底：AI 格式出错，但等式已验证成立，可以给出部分提示
                 if (aiReply.includes('正确') || aiReply.includes('对')) {
                     feedbackArea.innerHTML = `✅ ${aiReply} ⭐`;
                     feedbackArea.className = 'feedback correct';
@@ -961,6 +1145,33 @@
         return `黑白单线简笔画风格，纯黑白线条画，无彩色。${layout}，故事名称：《${storyName}》。${dialogsText}。每个格子中包含对应文字的对话气泡（漫画对话框），气泡内文字清晰。画面风格简洁，背景留白或简单线条。`;
     }
 
+    // ---------- 提交作品数据到 QuickForm（使用压缩后的 base64）----------
+    async function submitWorkData(className, studentName, storyName, panels, compressedBase64) {
+        const payload = {
+            className: className,
+            studentName: studentName,
+            storyName: storyName,
+            panels: panels.map((desc, idx) => ({
+                panelIndex: idx + 1,
+                description: desc || ""
+            })),
+            imageData: compressedBase64, // 压缩后的 base64
+            timestamp: new Date().toISOString()
+        };
+        try {
+            const response = await fetch('https://quickform.cn/api/qp2q80fahw', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                mode: 'cors'
+            });
+            if (response.ok) console.log('作品数据已成功提交到 QuickForm');
+            else console.warn('作品数据提交失败:', response.status);
+        } catch (err) {
+            console.error('提交作品数据出错:', err);
+        }
+    }
+
     async function generateComicImage(className, studentName) {
         syncGridsFromDom();
         refreshFishNumbers();
@@ -979,8 +1190,6 @@
         generateBtn.disabled = true;
         generateBtn.style.opacity = '0.6';
         const prompt = buildComicPrompt();
-        console.log(`班级: ${className}, 姓名: ${studentName}`);
-        statusMsgDiv.innerHTML = `📝 ${className} ${studentName} 的作品生成中...`;
         try {
             const response = await fetch(DOUBAO_API_URL, {
                 method: 'POST',
@@ -991,9 +1200,28 @@
             const result = await response.json();
             let imageUrl = result.data?.[0]?.url || result.images?.[0] || result.output?.url;
             if (!imageUrl) throw new Error('返回数据无图片URL');
+            
+            // 显示原始图片（高质量）
             comicContainer.innerHTML = `<img src="${imageUrl}" class="comic-image" style="max-width:100%; border-radius:28px;"><div style="margin-top:6px; font-size:0.6rem;">⭐ 点击图片放大 ⭐</div>`;
             const img = comicContainer.querySelector('img');
-            if (img) img.addEventListener('click', () => window.open(imageUrl, '_blank'));
+            if (img) img.addEventListener('click', () => showImageLightbox(imageUrl));
+            
+            // 压缩图片（用于存储和上传）
+            statusMsgDiv.innerHTML = `📦 正在压缩图片，请稍候...`;
+            let compressedBase64 = null;
+            try {
+                compressedBase64 = await compressImage(imageUrl, 800, 0.7);
+            } catch (compressErr) {
+                console.warn('图片压缩失败，将使用原始URL', compressErr);
+                // 压缩失败时，降级使用原始URL（注意：原始URL可能很大）
+                compressedBase64 = imageUrl;
+            }
+            
+            const storyPanels = gridsData.map(g => g.rawDesc || "");
+            const storyName = getCleanStoryName();
+            // 提交压缩后的数据
+            submitWorkData(className, studentName, storyName, storyPanels, compressedBase64);
+            saveWorkToGallery(className, studentName, storyName, compressedBase64);
             statusMsgDiv.innerHTML = `✅ ${className} ${studentName} 的连环画生成成功！ 点击“验证答案”按钮让DeepSeek检查算式是否正确。`;
             clearFeedback();
         } catch (err) {
@@ -1220,8 +1448,8 @@
         currentGridCount = 4;
         renderGridCards();
         refreshFishNumbers();
-        comicContainer.innerHTML = `<div class="loading-placeholder" style="padding:12px 10px;">✨ 点击“生成连环画”按钮，将根据故事绘制连环画 ✨</div>`;
-        statusMsgDiv.innerHTML = '💡 示例：15只动物，7只出去玩，还能开会的有多少只。点击🎤可用语音输入故事内容。';
+        comicContainer.innerHTML = `<div class="loading-placeholder" style="padding:12px 10px;">✨ 点击“生成连环画”按钮，AI将根据《动物王国开大会》故事绘制4格连环画 ✨</div>`;
+        statusMsgDiv.innerHTML = '💡 示例：15只动物，7只出去玩，还能开会的有8只。点击🎤可用语音输入故事内容。';
         clearFeedback();
         setupNumpad();
         storyMicBtn.addEventListener('click', () => startSpeechRecognition(storyNameInput, storyMicBtn));
@@ -1230,6 +1458,7 @@
         window.addEventListener('click', (e) => {
             if (e.target === modal) modal.style.display = 'none';
         });
+        renderGallery();
     }
 
     initDefault();
