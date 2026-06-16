@@ -423,7 +423,6 @@
             text-align: center;
             margin-top: 4px;
         }
-        /* 作品展示区 */
         .gallery-section {
             background: #fefcf8;
             padding: 12px;
@@ -566,7 +565,6 @@
         <div class="browser-hint">🎤 语音输入建议使用 Chrome、Edge 浏览器</div>
     </div>
 
-    <!-- 学生作品展示区（从API拉取） -->
     <div class="gallery-section" id="gallerySection" style="display: none;">
         <div class="gallery-title">📚 学生作品展</div>
         <div id="galleryScroll" class="gallery-scroll"></div>
@@ -623,10 +621,8 @@
             }
             gallerySection.style.display = 'block';
             galleryScroll.innerHTML = '';
-            // 按提交时间倒序展示（最新的在前面）
             const sorted = [...submissions].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             for (const work of sorted) {
-                // 只展示有图片数据的作品
                 if (!work.imageData) continue;
                 const item = document.createElement('div');
                 item.className = 'gallery-item';
@@ -1078,12 +1074,17 @@
         return `${n}`;
     }
 
+    // 关键修改：最后一格完全根据用户输入生成，不自动追加问题
     function getFullDialog(index, rawContent, totalGrids) {
         let cleanRaw = rawContent.replace(/^(原来|然后|接着|现在)/, '').trim();
         if (cleanRaw === "") cleanRaw = "发生了有趣的事";
         if (index === totalGrids - 1) {
-            if (cleanRaw.includes("请问") || cleanRaw.includes("多少")) return `现在，${cleanRaw}`;
-            return `现在，${cleanRaw} 请问还有几只小动物能开会？`;
+            // 最后一格：如果用户有输入，直接使用；否则给一个默认占位
+            if (cleanRaw !== "" && cleanRaw !== "发生了有趣的事") {
+                return `现在，${cleanRaw}`;
+            } else {
+                return `现在，请提出问题`;
+            }
         }
         if (index === 0) return `原来，${cleanRaw}`;
         if (index === 1) return `然后，${cleanRaw}`;
@@ -1106,7 +1107,7 @@
         let panelsDialogs = [];
         for (let i = 0; i < gridsData.length; i++) {
             let rawDesc = gridsData[i].rawDesc || "";
-            if (rawDesc === "") rawDesc = CLEAN_EXAMPLES[i];
+            // 直接使用用户输入（可能为空），由 getFullDialog 处理默认值
             const fullDialog = getFullDialog(i, rawDesc, gridNum);
             panelsDialogs.push(`第${i+1}格对话："${fullDialog}"`);
         }
@@ -1140,7 +1141,6 @@
             });
             if (response.ok) {
                 console.log('作品数据已成功提交到 QuickForm');
-                // 提交成功后，重新拉取作品展（延迟1秒确保服务器已处理）
                 setTimeout(() => renderGalleryFromAPI(), 1000);
             } else {
                 console.warn('作品数据提交失败:', response.status);
@@ -1175,6 +1175,20 @@
         });
     }
 
+    // ---------- 用户输入校验 ----------
+    function hasUserValidInput() {
+        // 检查每个格子的值是否与对应的示例文字完全相同（包括“例如：”前缀）
+        for (let i = 0; i < gridsData.length; i++) {
+            const raw = gridsData[i].rawDesc || "";
+            const example = getExampleText(i);
+            // 如果用户输入了内容，且不等于示例文字，则认为有效
+            if (raw !== "" && raw !== example) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     async function generateComicImage(className, studentName) {
         syncGridsFromDom();
         refreshFishNumbers();
@@ -1182,11 +1196,13 @@
             statusMsgDiv.innerHTML = '⚠️ 至少需要2格故事，请添加格子。';
             return;
         }
-        for (let i = 0; i < gridsData.length; i++) {
-            if (!gridsData[i].rawDesc || gridsData[i].rawDesc.trim() === "") {
-                gridsData[i].rawDesc = CLEAN_EXAMPLES[i];
-            }
+        // 新增：校验用户是否输入了有效内容
+        if (!hasUserValidInput()) {
+            alert('请至少在一个格子中输入故事内容，不要只使用示例文字。');
+            statusMsgDiv.innerHTML = '⚠️ 请至少在一个格子中输入故事内容。';
+            return;
         }
+        // 注意：不再强制填充示例文字，保持用户输入原样
         refreshFishNumbers();
         comicContainer.innerHTML = `<div class="loading-placeholder" style="padding:12px 10px;">✏️ AI正在绘制黑白简笔画（${currentGridCount}格），请稍等（约15-25秒）... ✏️</div>`;
         statusMsgDiv.innerHTML = '⏳ 调用豆包视觉模型生成分格漫画，请耐心等待...';
@@ -1204,12 +1220,10 @@
             let imageUrl = result.data?.[0]?.url || result.images?.[0] || result.output?.url;
             if (!imageUrl) throw new Error('返回数据无图片URL');
             
-            // 显示原始图片（高质量）
             comicContainer.innerHTML = `<img src="${imageUrl}" class="comic-image" style="max-width:100%; border-radius:28px;"><div style="margin-top:6px; font-size:0.6rem;">⭐ 点击图片放大 ⭐</div>`;
             const img = comicContainer.querySelector('img');
             if (img) img.addEventListener('click', () => showImageLightbox(imageUrl));
             
-            // 压缩图片用于存储和上传
             statusMsgDiv.innerHTML = `📦 正在压缩图片，请稍候...`;
             let compressedBase64 = null;
             try {
@@ -1458,7 +1472,6 @@
         window.addEventListener('click', (e) => {
             if (e.target === modal) modal.style.display = 'none';
         });
-        // 初始加载作品展
         renderGalleryFromAPI();
     }
 
