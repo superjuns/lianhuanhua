@@ -1,27 +1,3 @@
-
-    // URL参数自动登录工具函数
-    function getUrlParam(name) {
-        return new URLSearchParams(window.location.search).get(name) || '';
-    }
-    function normStr(s) {
-        return String(s || '').replace(/班/g, '').replace(/\s/g, '').toLowerCase();
-    }
-    // URL参数自动登录（平台跳转时免输入）
-    async function tryAutoLoginFromUrl() {
-        const cls = getUrlParam('class') || getUrlParam('cls') || getUrlParam('班级');
-        const name = getUrlParam('name') || getUrlParam('姓名');
-        if (!cls || !name) return false;
-        const normCls = /^\d+$/.test(cls) ? cls + '班' : cls;
-        try {
-            const allowed = await checkWhitelist(normCls, name);
-            if (!allowed) return false;
-            localStorage.setItem('lianhuanhua_class', normCls);
-            localStorage.setItem('lianhuanhua_name', name);
-            return true;
-        } catch (e) {
-        localStorage.setItem('lianhuanhua_class', className);
-        localStorage.setItem('lianhuanhua_name', studentName); return false; }
-    }
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -618,6 +594,30 @@
 </div>
 
 <script>
+    // ---------- URL参数自动登录工具函数 ----------
+    function getUrlParam(name) {
+        return new URLSearchParams(window.location.search).get(name) || '';
+    }
+    function normStr(s) {
+        return String(s || '').replace(/班/g, '').replace(/\s/g, '').toLowerCase();
+    }
+    // URL参数自动登录（平台跳转时免输入）
+    async function tryAutoLoginFromUrl() {
+        const cls = getUrlParam('class') || getUrlParam('cls') || getUrlParam('班级');
+        const name = getUrlParam('name') || getUrlParam('姓名');
+        if (!cls || !name) return false;
+        const normCls = /^\d+$/.test(cls) ? cls + '班' : cls;
+        try {
+            const allowed = await checkWhitelist(normCls, name);
+            if (!allowed) return false;
+            localStorage.setItem('lianhuanhua_class', normCls);
+            localStorage.setItem('lianhuanhua_name', name);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
     // ---------- 豆包API配置 ----------
     const DOUBAO_API_URL = "https://ark.cn-beijing.volces.com/api/v3/images/generations";
     const DOUBAO_API_KEY = "ark-b2f56a37-c299-4472-ad23-3447736e0e7a-0415f";
