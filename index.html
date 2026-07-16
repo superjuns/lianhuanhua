@@ -908,23 +908,14 @@
     function getCleanStoryName() {
         let raw = storyNameInput.value.trim();
         if (raw.startsWith("例如：")) raw = raw.substring(3);
-        if (raw === "" || raw === "动物王国开大会") return "动物王国开大会";
         return raw;
     }
-
-    const CLEAN_EXAMPLES = [
-        "森林中有15只小动物",
-        "狮子邀请所有小动物开会",
-        "7只小动物出去玩了",
-        "问还有几只小动物能开会？"
-    ];
 
     function buildFullStory() {
         const storyName = getCleanStoryName();
         let parts = [];
         for (let i = 0; i < gridsData.length; i++) {
             let rawDesc = gridsData[i].rawDesc || "";
-            if (rawDesc === "") rawDesc = CLEAN_EXAMPLES[i];
             if (rawDesc) parts.push(rawDesc);
         }
         return `故事名称：《${storyName}》。故事内容：${parts.join("，")}`;
@@ -1123,14 +1114,9 @@
     // 关键修改：最后一格完全根据用户输入生成，不自动追加问题
     function getFullDialog(index, rawContent, totalGrids) {
         let cleanRaw = rawContent.replace(/^(原来|然后|接着|现在)/, '').trim();
-        if (cleanRaw === "") cleanRaw = "发生了有趣的事";
+        if (cleanRaw === "") return null;
         if (index === totalGrids - 1) {
-            // 最后一格：如果用户有输入，直接使用；否则给一个默认占位
-            if (cleanRaw !== "" && cleanRaw !== "发生了有趣的事") {
-                return `现在，${cleanRaw}`;
-            } else {
-                return `现在，请提出问题`;
-            }
+            return `现在，${cleanRaw}`;
         }
         if (index === 0) return `原来，${cleanRaw}`;
         if (index === 1) return `然后，${cleanRaw}`;
@@ -1153,9 +1139,10 @@
         let panelsDialogs = [];
         for (let i = 0; i < gridsData.length; i++) {
             let rawDesc = gridsData[i].rawDesc || "";
-            // 直接使用用户输入（可能为空），由 getFullDialog 处理默认值
             const fullDialog = getFullDialog(i, rawDesc, gridNum);
-            panelsDialogs.push(`第${i+1}格对话："${fullDialog}"`);
+            if (fullDialog) {
+                panelsDialogs.push(`第${i+1}格对话："${fullDialog}"`);
+            }
         }
         const dialogsText = panelsDialogs.join("；");
         let layout = "";
