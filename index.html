@@ -874,7 +874,7 @@
     }
 
     // ---------- 使用次数限制 ----------
-    const DAILY_LIMIT = 2;
+    const DAILY_LIMIT = 1;
     function getUsageKey(className, studentName) {
         const today = new Date().toISOString().slice(0,10);
         return `usage_${className}_${studentName}_${today}`;
