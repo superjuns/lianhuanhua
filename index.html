@@ -1180,7 +1180,8 @@ window.fetch = function(url, options) {
                 description: desc || ""
             })),
             imageData: compressedBase64,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            submitted_at: new Date().toISOString()
         };
         try {
             const response = await fetch('https://bjugehxenrvaqtodjkbc.supabase.co/rest/v1/scores_lianhuanhua', {
